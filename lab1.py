@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.signal import medfilt
 
+# Function to calculate the skyline in a given mask
 def cal_skyline(mask):
     h, w = mask.shape
     for i in range(w):
@@ -20,6 +21,7 @@ def cal_skyline(mask):
             continue
     return mask
 
+# Function to get the skyline region gradient in an image
 def get_sky_region_gradient(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
@@ -43,8 +45,6 @@ def get_sky_region_gradient(img):
     # Optional: Apply median blur or other filtering if needed
     combined_mask = cv2.medianBlur(combined_mask.astype(np.uint8), 5)
 
-    # Additional processing if required
-
     # Calculate skyline using your existing function
     mask = cal_skyline(combined_mask)
 
@@ -53,6 +53,7 @@ def get_sky_region_gradient(img):
 
     return after_img
 
+# Function to process the input image using the above functions
 def process_image(input_image):
     img = cv2.cvtColor(input_image, cv2.COLOR_RGB2BGR)
     result_img = get_sky_region_gradient(img)
@@ -64,8 +65,6 @@ iface = gr.Interface(
     inputs=["image"],
     outputs="image",
 )
-
-
 
 # Launch the Gradio interface
 iface.launch()
