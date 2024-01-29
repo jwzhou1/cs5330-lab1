@@ -1,7 +1,8 @@
-from scipy.signal import medfilt
-import lab1 as gr
+import gradio as gr
 import cv2
 import numpy as np
+from matplotlib import pyplot as plt
+from scipy.signal import medfilt
 
 def cal_skyline(mask):
     h, w = mask.shape
@@ -20,43 +21,51 @@ def cal_skyline(mask):
     return mask
 
 def get_sky_region_gradient(img):
-    h, w, _ = img.shape
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img_gray = cv2.blur(img_gray, (9, 3))
-    cv2.medianBlur(img_gray, 5)
-    lap = cv2.Laplacian(img_gray, cv2.CV_8U)
-    gradient_mask = (lap < 6).astype(np.uint8)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 3))
-    mask = cv2.morphologyEx(gradient_mask, cv2.MORPH_ERODE, kernel)
-    mask = cal_skyline(mask)
+
+    # Apply color space conversion (e.g., RGB to HSV)
+    hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hue_channel = hsv_img[:, :, 0]
+
+    # Thresholding Techniques
+    _, thresholded_img = cv2.threshold(hue_channel, 100, 255, cv2.THRESH_BINARY)
+
+    # Morphological Operations (e.g., erosion, dilation)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    morph_img = cv2.morphologyEx(thresholded_img, cv2.MORPH_OPEN, kernel)
+
+    # Edge Detection (e.g., Canny edge detector)
+    edges = cv2.Canny(img_gray, 50, 150)
+
+    # Combine the results using logical OR
+    combined_mask = np.logical_or.reduce([morph_img, edges])
+
+    # Optional: Apply median blur or other filtering if needed
+    combined_mask = cv2.medianBlur(combined_mask.astype(np.uint8), 5)
+
+    # Additional processing if required
+
+    # Calculate skyline using your existing function
+    mask = cal_skyline(combined_mask)
+
+    # Apply the mask to the original image
     after_img = cv2.bitwise_and(img, img, mask=mask)
+
     return after_img
 
-def identify_sky_pixels(image):
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_sky_blue = np.array([100, 50, 50])
-    upper_sky_blue = np.array([140, 255, 255])
-    lower_white = np.array([0, 0, 200])
-    upper_white = np.array([255, 30, 255])
-    sky_mask = cv2.inRange(hsv_image, lower_sky_blue, upper_sky_blue)
-    cloud_mask = cv2.inRange(hsv_image, lower_white, upper_white)
-    sky_mask = cv2.subtract(sky_mask, cloud_mask)
-    kernel = np.ones((5, 5), np.uint8)
-    morphological_image = cv2.morphologyEx(sky_mask, cv2.MORPH_OPEN, kernel)
-    morphological_image = cv2.morphologyEx(morphological_image, cv2.MORPH_CLOSE, kernel)
-    return morphological_image
-
 def process_image(input_image):
-    image = cv2.imread(input_image)
-    sky_pixels = identify_sky_pixels(image)
-    return sky_pixels
+    img = cv2.cvtColor(input_image, cv2.COLOR_RGB2BGR)
+    result_img = get_sky_region_gradient(img)
+    return cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)
 
+# Gradio Interface
 iface = gr.Interface(
     fn=process_image,
-    inputs=gr.Image(),
-    outputs=gr.Image(),
-    live=True,
-    capture_session=True,
+    inputs=["image"],
+    outputs="image",
 )
 
+
+
+# Launch the Gradio interface
 iface.launch()
